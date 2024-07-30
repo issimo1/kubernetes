@@ -19,6 +19,7 @@ package network
 import (
 	"context"
 	"fmt"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"strings"
 	"time"
 
@@ -97,6 +98,27 @@ var _ = common.SIGDescribe("IngressClass [Feature:Ingress]", func() {
 	})
 
 })
+
+func createBetaIngressClass(cs clientset.Interface, name string, isDefault bool, uniqueName string) (*networkingv1beta1.IngressClass, error) {
+	ingressClass := &networkingv1beta1.IngressClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				"ingressclass":  uniqueName,
+				"special-label": "generic",
+			},
+		},
+		Spec: networkingv1beta1.IngressClassSpec{
+			Controller: "example.com/controller",
+		},
+	}
+
+	if isDefault {
+		ingressClass.Annotations = map[string]string{networkingv1beta1.AnnotationIsDefaultIngressClass: "true"}
+	}
+
+	return cs.NetworkingV1beta1().IngressClasses().Create(context.TODO(), ingressClass, metav1.CreateOptions{})
+}
 
 func createIngressClass(cs clientset.Interface, name string, isDefault bool, uniqueName string) (*networkingv1.IngressClass, error) {
 	ingressClass := &networkingv1.IngressClass{
@@ -195,7 +217,7 @@ var _ = common.SIGDescribe("IngressClass API", func() {
 			}
 			framework.ExpectEqual(found, true, fmt.Sprintf("expected networking API version, got %#v", group.Versions))
 		}
-
+		isAcore := false
 		ginkgo.By("getting /apis/networking.k8s.io" + icVersion)
 		{
 			resources, err := f.ClientSet.Discovery().ServerResourcesForGroupVersion(networkingv1.SchemeGroupVersion.String())
@@ -205,14 +227,24 @@ var _ = common.SIGDescribe("IngressClass API", func() {
 				switch resource.Name {
 				case "ingressclasses":
 					foundIC = true
-                                case "ingresses":
-                                        foundIC = true
+				case "ingresses":
+					isAcore = true
+					foundIC = true
 				}
 			}
 			framework.ExpectEqual(foundIC, true, fmt.Sprintf("expected ingressclasses, got %#v", resources.APIResources))
 		}
 
 		// IngressClass resource create/read/update/watch verbs
+		if isAcore {
+			ginkgo.By("creating")
+			_, err := createBetaIngressClass(cs, "ingressclass1", false, f.UniqueName)
+			framework.ExpectNoError(err)
+			_, err = createBetaIngressClass(cs, "ingressclass2", false, f.UniqueName)
+			framework.ExpectNoError(err)
+			_, err = createBetaIngressClass(cs, "ingressclass3", false, f.UniqueName)
+			framework.ExpectNoError(err)
+		}
 		ginkgo.By("creating")
 		ingressClass1, err := createIngressClass(cs, "ingressclass1", false, f.UniqueName)
 		framework.ExpectNoError(err)
