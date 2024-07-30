@@ -244,6 +244,7 @@ var _ = common.SIGDescribe("IngressClass API", func() {
 			framework.ExpectNoError(err)
 			_, err = createBetaIngressClass(cs, "ingressclass3", false, f.UniqueName)
 			framework.ExpectNoError(err)
+			return
 		}
 		ginkgo.By("creating")
 		ingressClass1, err := createIngressClass(cs, "ingressclass1", false, f.UniqueName)
